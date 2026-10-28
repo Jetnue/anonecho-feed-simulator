@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Echo simulator</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2.0.5/fonts/static/woff2/SUIT.css">
+<style>
+:root{--bg:#F4F4F7;--card:#FFFFFF;--ink:#494949;--muted:#7A7A80;--sec:#9C9C9C;--line:#E2E2E8;--green:#64B086;--dk:#2F7A52;--light:#DCEAE2;--red:#E64242;--redsoft:rgba(230,66,66,.12)}
+*{box-sizing:border-box;margin:0}
+html,body{background:transparent}
+body{font-family:SUIT,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.w{background:var(--bg);border-radius:24px;padding:28px 28px 22px;display:grid;gap:20px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dk)}
+h2{font-size:22px;font-weight:700;margin-top:6px;line-height:1.3}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;background:var(--card);border-radius:18px;padding:18px 20px}
+.ctl{display:grid;gap:8px;min-width:0}
+.ctl .lab{display:flex;justify-content:space-between;font-size:14px;font-weight:600}
+.ctl .lab output{font-variant-numeric:tabular-nums;color:var(--dk)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{font:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--ink);background:transparent;color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+input[type=range]{width:100%;accent-color:var(--green)}
+.sw{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;cursor:pointer;user-select:none}
+.sw input{appearance:none;width:40px;height:24px;border-radius:12px;background:#D2D2D6;position:relative;cursor:pointer;flex:none;transition:background .15s}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+.sw input:checked{background:var(--green)}.sw input:checked::after{left:19px}
+.sw small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:640px){.controls{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.w{padding:20px 16px}}
+.tile{background:var(--card);border-radius:14px;padding:12px 14px;display:grid;gap:2px;min-width:0}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.tile.bad .v{color:var(--red)}
+.chart{background:var(--card);border-radius:18px;padding:12px 8px 4px}
+svg{display:block;width:100%;height:auto}
+.ax{fill:var(--sec);font-size:12px}
+.take{font-size:15px;line-height:1.5}
+.take b{font-weight:700}
+.note{font-size:12px;color:var(--sec);line-height:1.5}
+</style></head><body>
+<div class="w">
+  <div><div class="eyebrow">Feed simulator · try it</div><h2>Will this echo come home?</h2></div>
+  <div class="controls">
+    <div class="ctl"><div class="lab"><span>Readers per day</span></div>
+      <div class="seg" id="dau"><button data-v="20" aria-pressed="true">20</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="500">500</button></div></div>
+    <div class="ctl"><div class="lab"><label for="t">Deliveries the writer picks</label><output id="tv">20 times</output></div>
+      <input id="t" type="range" min="5" max="50" step="5" value="20"></div>
+    <label class="sw"><input type="checkbox" id="bump" checked><span>Resurface older echoes<small>1 in 8 feed slots</small></span></label>
+    <label class="sw"><input type="checkbox" id="lim" checked><span>Return after 7 days<small>even if short of target</small></span></label>
+  </div>
+  <div class="tiles">
+    <div class="tile"><span class="k">Reached its target</span><span class="v" id="r1">–</span></div>
+    <div class="tile"><span class="k">Typical wait</span><span class="v" id="r2">–</span></div>
+    <div class="tile" id="t3"><span class="k" id="k3">Came back after 7 days</span><span class="v" id="r3">–</span></div>
+    <div class="tile"><span class="k">People it reached</span><span class="v" id="r4">–</span></div>
+  </div>
+  <div class="chart"><svg id="c" viewBox="0 0 760 300" role="img" aria-label="Typical wait by deliveries picked"></svg></div>
+  <p class="take" id="take"></p>
+  <p class="note">Simulation with assumed usage: 2 visits per person a day, 8 posts seen per visit, 0.3 posts written per person a day. Not measured data.</p>
+</div>
+<script>
+const G={"20_0_7":[{"T":5,"reach":1,"med":3.33,"forced":0,"uniq":5},{"T":10,"reach":1,"med":9.69,"forced":0,"uniq":10},{"T":15,"reach":1,"med":16.6,"forced":0,"uniq":14},{"T":20,"reach":1,"med":22.4,"forced":0,"uniq":16},{"T":25,"reach":1,"med":31.4,"forced":0,"uniq":17},{"T":30,"reach":0.738,"med":39.5,"forced":0.262,"uniq":18},{"T":35,"reach":0.25,"med":42.8,"forced":0.75,"uniq":18},{"T":40,"reach":0.036,"med":46.33,"forced":0.964,"uniq":18},{"T":45,"reach":0,"med":null,"forced":1,"uniq":18},{"T":50,"reach":0,"med":null,"forced":1,"uniq":18}],"20_0_0":[{"T":5,"reach":1,"med":3.33,"forced":0,"uniq":5},{"T":10,"reach":1,"med":9.69,"forced":0,"uniq":10},{"T":15,"reach":1,"med":16.6,"forced":0,"uniq":14},{"T":20,"reach":1,"med":22.4,"forced":0,"uniq":16},{"T":25,"reach":1,"med":31.4,"forced":0,"uniq":17},{"T":30,"reach":0.75,"med":39.5,"forced":0.25,"uniq":18},{"T":35,"reach":0.25,"med":42.8,"forced":0.75,"uniq":18},{"T":40,"reach":0.036,"med":46.33,"forced":0.964,"uniq":18},{"T":45,"reach":0,"med":null,"forced":1,"uniq":18},{"T":50,"reach":0,"med":null,"forced":1,"uniq":18}],"20_7_7":[{"T":5,"reach":1,"med":3.33,"forced":0,"uniq":5},{"T":10,"reach":1,"med":9.69,"forced":0,"uniq":10},{"T":15,"reach":1,"med":16.73,"forced":0,"uniq":14},{"T":20,"reach":1,"med":22.67,"forced":0,"uniq":16},{"T":25,"reach":1,"med":31.98,"forced":0,"uniq":17},{"T":30,"reach":1,"med":48.48,"forced":0,"uniq":18},{"T":35,"reach":0.369,"med":159.11,"forced":0.631,"uniq":18},{"T":40,"reach":0.119,"med":162.35,"forced":0.881,"uniq":18},{"T":45,"reach":0.048,"med":167.89,"forced":0.952,"uniq":18},{"T":50,"reach":0,"med":null,"forced":1,"uniq":18}],"20_7_0":[{"T":5,"reach":1,"med":3.33,"forced":0,"uniq":5},{"T":10,"reach":1,"med":9.69,"forced":0,"uniq":10},{"T":15,"reach":1,"med":16.73,"forced":0,"uniq":14},{"T":20,"reach":1,"med":22.67,"forced":0,"uniq":16},{"T":25,"reach":1,"med":31.98,"forced":0,"uniq":17},{"T":30,"reach":1,"med":48.48,"forced":0,"uniq":18},{"T":35,"reach":0.631,"med":248.4,"forced":0.369,"uniq":18},{"T":40,"reach":0.262,"med":369.92,"forced":0.738,"uniq":18},{"T":45,"reach":0.024,"med":494.02,"forced":0.976,"uniq":18},{"T":50,"reach":0,"med":null,"forced":1,"uniq":17}],"50_0_7":[{"T":5,"reach":1,"med":1.05,"forced":0,"uniq":5},{"T":10,"reach":1,"med":2.26,"forced":0,"uniq":10},{"T":15,"reach":1,"med":3.83,"forced":0,"uniq":15},{"T":20,"reach":1,"med":5.95,"forced":0,"uniq":20},{"T":25,"reach":1,"med":9.09,"forced":0,"uniq":25},{"T":30,"reach":1,"med":13.63,"forced":0,"uniq":30},{"T":35,"reach":0.976,"med":17.64,"forced":0.024,"uniq":33},{"T":40,"reach":0.252,"med":17.92,"forced":0.748,"uniq":33},{"T":45,"reach":0.043,"med":18.86,"forced":0.957,"uniq":33},{"T":50,"reach":0.019,"med":21.77,"forced":0.981,"uniq":33}],"50_0_0":[{"T":5,"reach":1,"med":1.05,"forced":0,"uniq":5},{"T":10,"reach":1,"med":2.26,"forced":0,"uniq":10},{"T":15,"reach":1,"med":3.83,"forced":0,"uniq":15},{"T":20,"reach":1,"med":5.95,"forced":0,"uniq":20},{"T":25,"reach":1,"med":9.09,"forced":0,"uniq":25},{"T":30,"reach":1,"med":13.63,"forced":0,"uniq":30},{"T":35,"reach":1,"med":17.86,"forced":0,"uniq":33},{"T":40,"reach":0.252,"med":17.92,"forced":0.748,"uniq":33},{"T":45,"reach":0.043,"med":18.86,"forced":0.957,"uniq":33},{"T":50,"reach":0.019,"med":21.77,"forced":0.981,"uniq":33}],"50_7_7":[{"T":5,"reach":1,"med":1.05,"forced":0,"uniq":5},{"T":10,"reach":1,"med":2.26,"forced":0,"uniq":10},{"T":15,"reach":1,"med":3.83,"forced":0,"uniq":15},{"T":20,"reach":1,"med":5.95,"forced":0,"uniq":20},{"T":25,"reach":1,"med":10.36,"forced":0,"uniq":25},{"T":30,"reach":1,"med":14.49,"forced":0,"uniq":29},{"T":35,"reach":1,"med":25.29,"forced":0,"uniq":32},{"T":40,"reach":0.624,"med":164,"forced":0.376,"uniq":33},{"T":45,"reach":0.195,"med":166.95,"forced":0.805,"uniq":33},{"T":50,"reach":0.052,"med":167.12,"forced":0.948,"uniq":33}],"50_7_0":[{"T":5,"reach":1,"med":1.05,"forced":0,"uniq":5},{"T":10,"reach":1,"med":2.26,"forced":0,"uniq":10},{"T":15,"reach":1,"med":3.83,"forced":0,"uniq":15},{"T":20,"reach":1,"med":5.95,"forced":0,"uniq":20},{"T":25,"reach":1,"med":10.36,"forced":0,"uniq":25},{"T":30,"reach":1,"med":14.49,"forced":0,"uniq":29},{"T":35,"reach":1,"med":25.29,"forced":0,"uniq":32},{"T":40,"reach":0.781,"med":215.4,"forced":0.219,"uniq":34},{"T":45,"reach":0.319,"med":342.7,"forced":0.681,"uniq":33},{"T":50,"reach":0.105,"med":461.69,"forced":0.895,"uniq":31}],"100_0_7":[{"T":5,"reach":1,"med":0.51,"forced":0,"uniq":5},{"T":10,"reach":1,"med":1,"forced":0,"uniq":10},{"T":15,"reach":1,"med":1.51,"forced":0,"uniq":15},{"T":20,"reach":1,"med":2.26,"forced":0,"uniq":20},{"T":25,"reach":1,"med":2.97,"forced":0,"uniq":25},{"T":30,"reach":1,"med":3.89,"forced":0,"uniq":30},{"T":35,"reach":1,"med":5.84,"forced":0,"uniq":35},{"T":40,"reach":1,"med":10.16,"forced":0,"uniq":40},{"T":45,"reach":0.726,"med":10.44,"forced":0.274,"uniq":44},{"T":50,"reach":0.417,"med":8.86,"forced":0.583,"uniq":43}],"100_0_0":[{"T":5,"reach":1,"med":0.51,"forced":0,"uniq":5},{"T":10,"reach":1,"med":1,"forced":0,"uniq":10},{"T":15,"reach":1,"med":1.51,"forced":0,"uniq":15},{"T":20,"reach":1,"med":2.26,"forced":0,"uniq":20},{"T":25,"reach":1,"med":2.97,"forced":0,"uniq":25},{"T":30,"reach":1,"med":3.89,"forced":0,"uniq":30},{"T":35,"reach":1,"med":5.84,"forced":0,"uniq":35},{"T":40,"reach":1,"med":10.16,"forced":0,"uniq":40},{"T":45,"reach":0.726,"med":10.44,"forced":0.274,"uniq":44},{"T":50,"reach":0.417,"med":8.86,"forced":0.583,"uniq":43}],"100_7_7":[{"T":5,"reach":1,"med":0.51,"forced":0,"uniq":5},{"T":10,"reach":1,"med":1,"forced":0,"uniq":10},{"T":15,"reach":1,"med":1.51,"forced":0,"uniq":15},{"T":20,"reach":1,"med":2.26,"forced":0,"uniq":20},{"T":25,"reach":1,"med":3.03,"forced":0,"uniq":25},{"T":30,"reach":1,"med":4.52,"forced":0,"uniq":30},{"T":35,"reach":1,"med":8.47,"forced":0,"uniq":35},{"T":40,"reach":1,"med":13.91,"forced":0,"uniq":40},{"T":45,"reach":0.981,"med":106.2,"forced":0.019,"uniq":43},{"T":50,"reach":0.552,"med":157.5,"forced":0.448,"uniq":44}],"100_7_0":[{"T":5,"reach":1,"med":0.51,"forced":0,"uniq":5},{"T":10,"reach":1,"med":1,"forced":0,"uniq":10},{"T":15,"reach":1,"med":1.51,"forced":0,"uniq":15},{"T":20,"reach":1,"med":2.26,"forced":0,"uniq":20},{"T":25,"reach":1,"med":3.03,"forced":0,"uniq":25},{"T":30,"reach":1,"med":4.52,"forced":0,"uniq":30},{"T":35,"reach":1,"med":8.47,"forced":0,"uniq":35},{"T":40,"reach":1,"med":13.91,"forced":0,"uniq":40},{"T":45,"reach":1,"med":108.7,"forced":0,"uniq":43},{"T":50,"reach":0.555,"med":267.75,"forced":0.445,"uniq":44}],"500_0_7":[{"T":5,"reach":1,"med":0.09,"forced":0,"uniq":5},{"T":10,"reach":1,"med":0.19,"forced":0,"uniq":10},{"T":15,"reach":1,"med":0.28,"forced":0,"uniq":15},{"T":20,"reach":1,"med":0.38,"forced":0,"uniq":20},{"T":25,"reach":1,"med":0.49,"forced":0,"uniq":25},{"T":30,"reach":1,"med":0.61,"forced":0,"uniq":30},{"T":35,"reach":1,"med":0.79,"forced":0,"uniq":35},{"T":40,"reach":1,"med":0.98,"forced":0,"uniq":40},{"T":45,"reach":1,"med":1.26,"forced":0,"uniq":45},{"T":50,"reach":1,"med":2.31,"forced":0,"uniq":50}],"500_0_0":[{"T":5,"reach":1,"med":0.09,"forced":0,"uniq":5},{"T":10,"reach":1,"med":0.19,"forced":0,"uniq":10},{"T":15,"reach":1,"med":0.28,"forced":0,"uniq":15},{"T":20,"reach":1,"med":0.38,"forced":0,"uniq":20},{"T":25,"reach":1,"med":0.49,"forced":0,"uniq":25},{"T":30,"reach":1,"med":0.61,"forced":0,"uniq":30},{"T":35,"reach":1,"med":0.79,"forced":0,"uniq":35},{"T":40,"reach":1,"med":0.98,"forced":0,"uniq":40},{"T":45,"reach":1,"med":1.26,"forced":0,"uniq":45},{"T":50,"reach":1,"med":2.31,"forced":0,"uniq":50}],"500_7_7":[{"T":5,"reach":1,"med":0.09,"forced":0,"uniq":5},{"T":10,"reach":1,"med":0.19,"forced":0,"uniq":10},{"T":15,"reach":1,"med":0.28,"forced":0,"uniq":15},{"T":20,"reach":1,"med":0.39,"forced":0,"uniq":20},{"T":25,"reach":1,"med":0.5,"forced":0,"uniq":25},{"T":30,"reach":1,"med":0.66,"forced":0,"uniq":30},{"T":35,"reach":1,"med":0.87,"forced":0,"uniq":35},{"T":40,"reach":1,"med":1.15,"forced":0,"uniq":40},{"T":45,"reach":1,"med":2.15,"forced":0,"uniq":45},{"T":50,"reach":1,"med":7.01,"forced":0,"uniq":50}],"500_7_0":[{"T":5,"reach":1,"med":0.09,"forced":0,"uniq":5},{"T":10,"reach":1,"med":0.19,"forced":0,"uniq":10},{"T":15,"reach":1,"med":0.28,"forced":0,"uniq":15},{"T":20,"reach":1,"med":0.39,"forced":0,"uniq":20},{"T":25,"reach":1,"med":0.5,"forced":0,"uniq":25},{"T":30,"reach":1,"med":0.66,"forced":0,"uniq":30},{"T":35,"reach":1,"med":0.87,"forced":0,"uniq":35},{"T":40,"reach":1,"med":1.15,"forced":0,"uniq":40},{"T":45,"reach":1,"med":2.15,"forced":0,"uniq":45},{"T":50,"reach":1,"med":7.01,"forced":0,"uniq":50}]};
+const st={dau:20,t:20,bump:true,lim:true};
+const $=id=>document.getElementById(id);
+const fmt=h=>h==null?'–':h<1?Math.max(1,Math.round(h*60))+' min':h<48?Math.round(h)+' h':(h/24).toFixed(1)+' days';
+const pct=x=>Math.round(x*100)+'%';
+function data(){return G[st.dau+'_'+(st.bump?7:0)+'_'+(st.lim?7:0)];}
+function draw(rows){
+  const W=760,H=300,L=64,R=24,T=34,B=40,lo=Math.log10(0.1),hi=Math.log10(168);
+  const top=st.lim?T:T+18;
+  const X=t=>L+(t-5)/45*(W-L-R), Y=h=>H-B-(Math.log10(Math.max(h,0.1))-lo)/(hi-lo)*(H-B-top);
+  let g='';
+  [[0.1,'6 min'],[1,'1 h'],[6,'6 h'],[24,'1 day'],[72,'3 days']].forEach(([h,l])=>{const y=Y(h);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#E2E2E8"/><text class="ax" x="${L-10}" y="${y+4}" text-anchor="end">${l}</text>`;});
+  const y7=Y(168);
+  if(st.lim){g+=`<line x1="${L}" x2="${W-R}" y1="${y7}" y2="${y7}" stroke="#E64242" stroke-width="1.5" stroke-dasharray="6 5"/><text class="ax" x="${L-10}" y="${y7+4}" text-anchor="end" style="fill:#E64242;font-weight:700">7 days</text>`;}
+  else{g+=`<line x1="${L}" x2="${W-R}" y1="${T}" y2="${T}" stroke="#E64242" stroke-width="1.5" stroke-dasharray="2 4"/><text class="ax" x="${L-10}" y="${T+4}" text-anchor="end" style="fill:#E64242;font-weight:700">Never</text>`;}
+  [5,10,15,20,25,30,35,40,45,50].forEach(t=>g+=`<text class="ax" x="${X(t)}" y="${H-B+20}" text-anchor="middle" ${t===st.t?'style="fill:#494949;font-weight:700"':''}>${t}</text>`);
+  g+=`<text class="ax" x="${(L+W-R)/2}" y="${H-4}" text-anchor="middle" style="fill:#494949">Deliveries the writer picks</text>`;
+  const pts=rows.map(r=>{const stuck=r.reach<0.5;const y=stuck?(st.lim?y7:T):Y(r.med);return {x:X(r.T),y,stuck,T:r.T};});
+  g+=`<polyline fill="none" stroke="#64B086" stroke-width="3" stroke-linejoin="round" points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}"/>`;
+  pts.forEach(p=>{const on=p.T===st.t;const c=p.stuck?'#E64242':'#64B086';g+=`<circle cx="${p.x}" cy="${p.y}" r="${on?8:5}" fill="${on?'#FFFFFF':c}" stroke="${c}" stroke-width="${on?3.5:0}"/>`;});
+  $('c').innerHTML=g;
+}
+function render(){
+  const rows=data(), r=rows.find(x=>x.T===st.t);
+  $('tv').textContent=st.t+' times';
+  $('r1').textContent=pct(r.reach);
+  const stuck=r.reach<0.5;
+  $('r2').textContent=stuck?(st.lim?'7 days':'Never'):fmt(r.med);
+  $('k3').textContent=st.lim?'Came back after 7 days':'Never came back';
+  $('r3').textContent=pct(r.forced);
+  $('t3').classList.toggle('bad',r.forced>0.05);
+  $('r4').textContent='~'+r.uniq+' people';
+  let s;
+  if(!stuck&&r.forced<0.05) s=`With ${st.dau} readers a day, an echo asking for <b>${st.t} deliveries</b> usually comes home in about <b>${fmt(r.med)}</b>.`;
+  else if(st.lim) s=`With ${st.dau} readers a day, <b>${st.t} deliveries</b> is more than the feed can give. <b>${pct(r.forced)}</b> of these echoes come home after 7 days instead of getting stuck.`;
+  else s=`Without the 7-day return, <b>${pct(r.forced)}</b> of these echoes would stay in transit forever, with no word to the writer.`;
+  $('take').innerHTML=s; draw(rows);
+}
+$('dau').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('dau').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st.dau=+b.dataset.v;render();});
+$('t').addEventListener('input',e=>{st.t=+e.target.value;render();});
+$('bump').addEventListener('change',e=>{st.bump=e.target.checked;render();});
+$('lim').addEventListener('change',e=>{st.lim=e.target.checked;render();});
+render();
+</script></body></html>
