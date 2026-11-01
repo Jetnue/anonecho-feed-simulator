@@ -41,7 +41,7 @@ The 12-hour recount only makes a real difference when readers are very few. Beca
 - Assumptions will be checked against beta data, and exposure settings such as the resurfacing ratio adjusted from there.
 
 ## How this was made
-[AI와 내가 한 일 구분: 예) Claude wrote the simulation code; I defined the scenarios, assumptions and delivery rules, and interpreted the results.]
+I built the simulation with Claude. I defined the scenarios, assumptions and delivery rules, read the results, and made the product decisions. Claude wrote the simulation code.
 
 ## Limitations
 All results come from simulated readers and assumed behaviour, not real usage.
